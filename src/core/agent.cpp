@@ -8,6 +8,7 @@
 #include "llmcli/tools/web_tools.hpp"
 #include "llmcli/ui/console.hpp"
 #include "llmcli/utils/ansi.hpp"
+#include "llmcli/utils/http.hpp"
 #include "llmcli/i18n.hpp"
 #include <iostream>
 #include <sstream>
@@ -135,6 +136,23 @@ ToolResult Agent::execute_tool_with_permission(
     Config& cfg = get_config();
     std::string args_str = arguments.dump();
 
+    if (cfg.dry_run && (tool_name == "write_file" || tool_name == "run_command")) {
+        ToolResult res;
+        res.tool_call_id = tool_call_id;
+        res.name = tool_name;
+        res.success = true;
+        if (tool_name == "write_file") {
+            std::string p = arguments.value("path", "");
+            res.output = "[DRY-RUN] Simulação: arquivo '" + p + "' seria gravado (gravação em disco ignorada).";
+        } else {
+            std::string c = arguments.value("command", "");
+            res.output = "[DRY-RUN] Simulação: comando '" + c + "' seria executado (execução no terminal ignorada).";
+        }
+        ui::print_tool_execution(tool_name, args_str, true);
+        ui::print_tool_result(tool_name, true, res.output);
+        return res;
+    }
+
     if (!cfg.yolo_mode && (tool_name == "write_file" || tool_name == "run_command")) {
         std::string confirm_msg = "Deseja executar a ferramenta '" + tool_name + "' com os argumentos: " + args_str + "?";
         std::string choice = ui::ask_user_confirmation(confirm_msg);
@@ -256,6 +274,12 @@ std::string Agent::run_prompt(const std::string& user_prompt, int max_iterations
 
         std::cout << std::endl;
 
+        if (utils::HttpClient::is_stream_cancelled()) {
+            std::cout << "\n" << ansi::BOLD_YELLOW << i18n::t("stream_interrupted") << ansi::RESET << "\n";
+            utils::HttpClient::reset_stream_cancel_flag();
+            break;
+        }
+
         if (!stream_text.empty()) {
             print_token_usage(messages, stream_text, native_prompt_tok, native_comp_tok);
         }
@@ -275,6 +299,15 @@ std::string Agent::run_prompt(const std::string& user_prompt, int max_iterations
         // 1. Extract SEARCH/REPLACE blocks
         auto search_replace_blocks = extract_search_replace_blocks(stream_text);
         for (const auto& block : search_replace_blocks) {
+            if (cfg.dry_run) {
+                std::cout << ansi::BOLD_CYAN << "[DRY-RUN] Simulação de SEARCH/REPLACE em '" << block.file_path << "':" << ansi::RESET << "\n";
+                std::string diff_preview = generate_unified_diff(block.search_content, block.replace_content, block.file_path);
+                if (!diff_preview.empty()) {
+                    ui::print_diff(diff_preview, block.file_path);
+                }
+                continue;
+            }
+
             if (!cfg.yolo_mode) {
                 std::string choice = ui::ask_user_confirmation("Aplicar modificação no arquivo '" + block.file_path + "'?");
                 if (choice == "abort") break;

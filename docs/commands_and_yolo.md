@@ -22,6 +22,7 @@ Ao digitar `/` no prompt interativo, um menu flutuante surge **instantaneamente*
 | **`/agents`** | `/agents` ou `/rules` | Exibe as regras e diretrizes do arquivo `AGENTS.md` (ou `CLAUDE.md` / `RULES.md`). |
 | **`/yolo`** | `/yolo` | Alterna o modo autônomo YOLO (salva preferência por modelo e global). |
 | **`/architect`** | `/architect [modelo]` | Alterna o Modo Arquiteto (planejamento forte + editor ágil). Atalho: `/arch`. |
+| **`/dryrun`** | `/dryrun` ou `/dry-run` | Alterna o Modo Dry-Run (simulação sem gravação em disco ou execução de shell). |
 | **`/lang`** | `/lang <código>` | Altera o idioma do sistema (`pt`, `en`, `es`, `de`, `fr`, `zh`, `ru`, `hi`, `auto`). |
 | **`/model`** | `/model <nome/id>` | Menu interativo ou troca direta de modelo (ex: `/model llamacpp/default`). |
 | **`/models`** | `/models` | Exibe status de conectividade e saúde de todos os provedores. |

@@ -37,6 +37,12 @@ void test_completer_suite() {
 
         auto [rules_cmd, m9] = llmcli::ui::resolve_slash_command("/rules");
         if (!rules_cmd.has_value() || rules_cmd.value() != "/rules") throw std::runtime_error("Comando /rules não encontrado");
+
+        auto [dry_cmd, m10] = llmcli::ui::resolve_slash_command("/dryrun");
+        if (!dry_cmd.has_value() || dry_cmd.value() != "/dryrun") throw std::runtime_error("Comando /dryrun não encontrado");
+
+        auto [dry_cmd2, m11] = llmcli::ui::resolve_slash_command("/dry-run");
+        if (!dry_cmd2.has_value() || dry_cmd2.value() != "/dry-run") throw std::runtime_error("Comando /dry-run não encontrado");
     });
 
     run_test("Autocomplete de Modelos e Categorias (complete_models)", [](){

@@ -59,6 +59,7 @@ public:
     std::string architect_model{"gemini/gemini-2.5-pro"};
     std::string language{"pt-BR"};
     bool yolo_mode{false};
+    bool dry_run{false};
     bool enable_repomap{true};
     int repomap_max_files{60};
     double temperature{0.2};

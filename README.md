@@ -112,6 +112,7 @@ YOLO_MODE=false
 | **`/agents`** | `/agents` ou `/rules` | Exibe as diretrizes do arquivo `AGENTS.md` do projeto. |
 | **`/yolo`** | `/yolo` | Alterna o modo autônomo YOLO. |
 | **`/architect`** | `/architect [modelo]` | Alterna o Modo Arquiteto. |
+| **`/dryrun`** | `/dryrun` ou `/dry-run` | Alterna o Modo Dry-Run (simulação sem gravação em disco). |
 | **`/lang`** | `/lang <código>` | Altera o idioma (`pt`, `en`, `es`, `de`, `fr`, `zh`, `ru`, `hi`, `auto`). |
 | **`/model`** | `/model <nome/id>` | Menu interativo ou troca de modelo. |
 | **`/models`** | `/models` | Status de conectividade de todos os provedores. |
@@ -155,6 +156,7 @@ Explore os guias na pasta [`docs/`](file:///storage/www/projetos/utils/llmCli/ll
 - ⚡ [Comandos Slash e Modo YOLO](file:///storage/www/projetos/utils/llmCli/llmCLI_C/docs/commands_and_yolo.md)
 - 🤖 [Provedores e Modelos de LLM](file:///storage/www/projetos/utils/llmCli/llmCLI_C/docs/models_and_providers.md)
 - 📡 [Descoberta Automática de Modelos por IP](file:///storage/www/projetos/utils/llmCli/llmCLI_C/docs/network_discovery.md)
+- 🔌 [Integração com Servidores MCP](file:///storage/www/projetos/utils/llmCli/llmCLI_C/docs/mcp_servers.md)
 - 🛡️ [Ferramentas e Segurança](file:///storage/www/projetos/utils/llmCli/llmCLI_C/docs/tools_and_safety.md)
 
 ---

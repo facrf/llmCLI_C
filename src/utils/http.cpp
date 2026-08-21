@@ -8,8 +8,30 @@
 #include <memory>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <atomic>
+#include <csignal>
 
 namespace llmcli::utils {
+
+static std::atomic<bool> g_stream_cancelled{false};
+static std::atomic<pid_t> g_active_curl_pid{0};
+
+void HttpClient::cancel_active_stream() {
+    g_stream_cancelled = true;
+    pid_t p = g_active_curl_pid.load();
+    if (p > 0) {
+        kill(p, SIGTERM);
+    }
+}
+
+bool HttpClient::is_stream_cancelled() {
+    return g_stream_cancelled.load();
+}
+
+void HttpClient::reset_stream_cancel_flag() {
+    g_stream_cancelled = false;
+    g_active_curl_pid = 0;
+}
 
 std::string HttpClient::url_encode(const std::string& value) {
     std::ostringstream escaped;
@@ -266,9 +288,12 @@ bool HttpClient::post_stream(
     close(in_pipe[0]);
     close(out_pipe[1]);
 
+    g_stream_cancelled = false;
+    g_active_curl_pid = pid;
+
     // Send payload
     size_t written = 0;
-    while (written < payload_str.size()) {
+    while (written < payload_str.size() && !g_stream_cancelled) {
         ssize_t n = write(in_pipe[1], payload_str.data() + written, payload_str.size() - written);
         if (n <= 0) break;
         written += n;
@@ -280,7 +305,7 @@ bool HttpClient::post_stream(
     std::array<char, 2048> buf;
     ssize_t bytes_read = 0;
 
-    while ((bytes_read = read(out_pipe[0], buf.data(), buf.size())) > 0) {
+    while (!g_stream_cancelled && (bytes_read = read(out_pipe[0], buf.data(), buf.size())) > 0) {
         accumulator.append(buf.data(), bytes_read);
 
         size_t pos = 0;
@@ -294,17 +319,23 @@ bool HttpClient::post_stream(
         }
     }
 
-    if (!accumulator.empty()) {
+    if (!g_stream_cancelled && !accumulator.empty()) {
         if (accumulator.back() == '\r') accumulator.pop_back();
         on_line(accumulator);
     }
 
     close(out_pipe[0]);
+    g_active_curl_pid = 0;
+
+    if (g_stream_cancelled) {
+        kill(pid, SIGTERM);
+        out_error = "Operação cancelada pelo usuário.";
+    }
 
     int status;
     waitpid(pid, &status, 0);
 
-    return true;
+    return !g_stream_cancelled;
 }
 
 } // namespace llmcli::utils

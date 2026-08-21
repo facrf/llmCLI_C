@@ -48,6 +48,11 @@ public:
 
     // URL encoder
     static std::string url_encode(const std::string& value);
+
+    // Stream cancellation control
+    static void cancel_active_stream();
+    static bool is_stream_cancelled();
+    static void reset_stream_cancel_flag();
 };
 
 } // namespace llmcli::utils

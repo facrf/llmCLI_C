@@ -71,6 +71,7 @@ cp .env.example .env
 | **`/agents`** | `/agents` or `/rules` | Displays project rules from `AGENTS.md`. |
 | **`/yolo`** | `/yolo` | Toggles autonomous YOLO execution mode. |
 | **`/architect`** | `/architect [model]` | Toggles Architect Mode (planner + editor). |
+| **`/dryrun`** | `/dryrun` or `/dry-run` | Toggles Dry-Run mode (simulation without writing files). |
 | **`/lang`** | `/lang <code>` | Changes UI language (`pt`, `en`, `es`, `de`, `fr`, `zh`, `ru`, `hi`, `auto`). |
 | **`/model`** | `/model <name/id>` | Interactive model picker or switch. |
 | **`/models`** | `/models` | Status overview of all configured providers. |

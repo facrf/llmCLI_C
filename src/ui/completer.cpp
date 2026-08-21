@@ -6,55 +6,63 @@
 
 namespace llmcli::ui {
 
-static const std::vector<SlashCommandInfo> ALL_SLASH_COMMANDS = {
-    {"/yolo", "Alterna o modo YOLO (execução autônoma total sem pedir confirmação)"},
-    {"/architect", "Alterna Modo Arquiteto (modelo forte para planejar + modelo rápido para editar)"},
-    {"/arch", "Atalho para o comando /architect"},
-    {"/lang", "Exibe ou altera o idioma do sistema (pt, en, es, de, fr, zh, ru, hi, auto)"},
-    {"/language", "Atalho para o comando /lang"},
-    {"/model", "Troca o modelo de LLM ativo (ex: /model llamacpp/default, /model gemini/gemini-2.5-flash)"},
-    {"/models", "Lista todos os provedores e modelos locais/nuvem disponíveis"},
-    {"/key", "Exibe ou configura chaves de API e variáveis de ambiente (ex: /key GEMINI_API_KEY ...)"},
-    {"/setkey", "Atalho para configurar chaves de API no .env"},
-    {"/repomap", "Alterna ou ajusta a árvore de RepoMap no contexto (ex: /repomap on, /repomap off, /repomap 30)"},
-    {"/session", "Salva, carrega ou lista sessões de conversa (ex: /session save bugfix, /session load bugfix, /session list)"},
-    {"/mcp", "Lista servidores MCP configurados e ferramentas externas dinâmicas"},
-    {"/scan", "Escaneia um IP/host e detecta automaticamente todos os modelos e servidores de LLM ativos (ex: /scan 192.168.0.11)"},
-    {"/host", "Conecta e define o IP/host padrão para Ollama e llama.cpp (ex: /host 192.168.0.11)"},
-    {"/discover", "Escaneia e autodetecta modelos e servidores de LLM ativos no host"},
-    {"/add", "Adiciona arquivo(s) ao contexto ativo da IA (ex: /add src/main.cpp)"},
-    {"/drop", "Remove arquivo(s) do contexto da IA"},
-    {"/files", "Lista arquivos atualmente carregados no contexto"},
-    {"/index", "Indexa a base de código do projeto para busca semântica (RAG local)"},
-    {"/search", "Busca funções, classes e trechos no código indexado (ex: /search banco de dados)"},
-    {"/web", "Pesquisa informações e documentações na web (ex: /web cpp sockets)"},
-    {"/diff", "Exibe as alterações git atuais não commitadas"},
-    {"/commit", "Gera mensagem semântica via IA e cria commit Git (ex: /commit ou /commit feat: novo modulo)"},
-    {"/review", "Analisa e faz Code Review das modificações Git pendentes"},
-    {"/undo", "Reverte o último checkpoint / modificação realizada"},
-    {"/run", "Executa um comando de terminal diretamente"},
-    {"/test", "Executa a suíte de testes com diagnóstico"},
-    {"/gentest", "Gera suíte completa de testes unitários para o arquivo (ex: /gentest src/config.cpp)"},
-    {"/plan", "Cria plano técnico detalhado e divide automaticamente em tarefas no /todo"},
-    {"/todo", "Exibe e gerencia o checklist interativo de tarefas da sessão (ex: /todo, /todo add, /todo check)"},
-    {"/export", "Exporta a conversa e relatório da sessão em Markdown (.md) ou HTML (.html)"},
-    {"/clear", "Limpa o histórico da conversa atual"},
-    {"/reset", "Limpa histórico e remove todos os arquivos do contexto"},
-    {"/compact", "Compacta o histórico da conversa gerando um resumo consolidado"},
-    {"/temp", "Exibe ou altera a temperatura do modelo (ex: /temp 0.2)"},
-    {"/system", "Exibe, altera ou redefine o system prompt da sessão (ex: /system reset, /system agents)"},
-    {"/agents", "Exibe as diretrizes e regras do projeto carregadas do AGENTS.md (ou CLAUDE.md / RULES.md)"},
-    {"/rules", "Atalho para o comando /agents (exibe regras do projeto)"},
-    {"/paste", "Inicia modo de entrada multilinha para colar blocos de código"},
-    {"/tokens", "Exibe estimativa de tokens do contexto atual"},
-    {"/help", "Exibe o menu de ajuda e documentação"},
-    {"/exit", "Encerra o llmCli C++"},
-    {"/quit", "Encerra o llmCli C++"},
-    {"/q", "Encerra o llmCli C++"}
-};
-
 const std::vector<SlashCommandInfo>& get_all_slash_commands() {
-    return ALL_SLASH_COMMANDS;
+    static std::string last_lang = "";
+    static std::vector<SlashCommandInfo> commands;
+
+    std::string cur_lang = i18n::get_active_language();
+    if (commands.empty() || cur_lang != last_lang) {
+        last_lang = cur_lang;
+        commands = {
+            {"/yolo", i18n::t("cmd_yolo")},
+            {"/architect", i18n::t("cmd_architect")},
+            {"/arch", i18n::t("cmd_arch")},
+            {"/dryrun", i18n::t("cmd_dryrun")},
+            {"/dry-run", i18n::t("cmd_dryrun")},
+            {"/lang", i18n::t("cmd_lang")},
+            {"/language", i18n::t("cmd_language")},
+            {"/model", i18n::t("cmd_model")},
+            {"/models", i18n::t("cmd_models")},
+            {"/key", i18n::t("cmd_key")},
+            {"/setkey", i18n::t("cmd_setkey")},
+            {"/repomap", i18n::t("cmd_repomap")},
+            {"/session", i18n::t("cmd_session")},
+            {"/mcp", i18n::t("cmd_mcp")},
+            {"/scan", i18n::t("cmd_scan")},
+            {"/host", i18n::t("cmd_host")},
+            {"/discover", i18n::t("cmd_discover")},
+            {"/add", i18n::t("cmd_add")},
+            {"/drop", i18n::t("cmd_drop")},
+            {"/files", i18n::t("cmd_files")},
+            {"/index", i18n::t("cmd_index")},
+            {"/search", i18n::t("cmd_search")},
+            {"/web", i18n::t("cmd_web")},
+            {"/diff", i18n::t("cmd_diff")},
+            {"/commit", i18n::t("cmd_commit")},
+            {"/review", i18n::t("cmd_review")},
+            {"/undo", i18n::t("cmd_undo")},
+            {"/run", i18n::t("cmd_run")},
+            {"/test", i18n::t("cmd_test")},
+            {"/gentest", i18n::t("cmd_gentest")},
+            {"/plan", i18n::t("cmd_plan")},
+            {"/todo", i18n::t("cmd_todo")},
+            {"/export", i18n::t("cmd_export")},
+            {"/clear", i18n::t("cmd_clear")},
+            {"/reset", i18n::t("cmd_reset")},
+            {"/compact", i18n::t("cmd_compact")},
+            {"/temp", i18n::t("cmd_temp")},
+            {"/system", i18n::t("cmd_system")},
+            {"/agents", i18n::t("cmd_agents")},
+            {"/rules", i18n::t("cmd_rules")},
+            {"/paste", i18n::t("cmd_paste")},
+            {"/tokens", i18n::t("cmd_tokens")},
+            {"/help", i18n::t("cmd_help")},
+            {"/exit", i18n::t("cmd_exit")},
+            {"/quit", i18n::t("cmd_quit")},
+            {"/q", i18n::t("cmd_q")}
+        };
+    }
+    return commands;
 }
 
 std::string compute_longest_common_prefix(const std::vector<std::string>& candidates) {
@@ -84,8 +92,10 @@ std::pair<std::optional<std::string>, std::vector<std::string>> resolve_slash_co
 
     if (clean.empty() || clean[0] != '/') return {std::nullopt, {}};
 
+    const auto& all_cmds = get_all_slash_commands();
+
     // 1. Exact match
-    for (const auto& item : ALL_SLASH_COMMANDS) {
+    for (const auto& item : all_cmds) {
         if (item.command == clean) {
             return {item.command, {}};
         }
@@ -93,7 +103,7 @@ std::pair<std::optional<std::string>, std::vector<std::string>> resolve_slash_co
 
     // 2. Prefix search
     std::vector<std::string> matches;
-    for (const auto& item : ALL_SLASH_COMMANDS) {
+    for (const auto& item : all_cmds) {
         if (item.command.rfind(clean, 0) == 0) {
             matches.push_back(item.command);
         }

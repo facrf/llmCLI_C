@@ -10,6 +10,7 @@
 #include "llmcli/ui/console.hpp"
 #include "llmcli/utils/ansi.hpp"
 #include "llmcli/utils/env.hpp"
+#include "llmcli/utils/http.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -18,6 +19,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <cctype>
+#include <csignal>
 
 namespace llmcli::ui {
 
@@ -130,6 +132,10 @@ std::string ReplSession::get_prompt_str() const {
     }
 
     ss << " | " << yolo_tag;
+
+    if (cfg.dry_run) {
+        ss << " | " << ansi::BOLD_CYAN << "🔍 DRY-RUN: ON" << ansi::RESET;
+    }
 
     size_t files_count = agent_->session().file_tracker().size();
     if (files_count > 0) {
@@ -658,6 +664,67 @@ std::string ReplSession::read_line_input(const std::string& prompt) {
             continue;
         }
 
+        // Ctrl+R (Reverse history search)
+        if (c == 18) {
+            clear_rendered_below();
+            std::string search_query;
+            int found_idx = -1;
+
+            auto search_history = [&](const std::string& q, int start_from) -> int {
+                if (q.empty()) return -1;
+                for (int i = start_from; i >= 0; --i) {
+                    if (i < static_cast<int>(history_.size()) && history_[i].find(q) != std::string::npos) {
+                        return i;
+                    }
+                }
+                return -1;
+            };
+
+            while (true) {
+                std::string match_str = (found_idx >= 0 && found_idx < static_cast<int>(history_.size()))
+                                        ? history_[found_idx] : "";
+                std::cout << "\r\033[2K" << ansi::BOLD_CYAN << "(reverse-i-search)`"
+                          << ansi::BOLD_YELLOW << search_query << ansi::BOLD_CYAN << "': "
+                          << ansi::RESET << match_str << std::flush;
+
+                char rc;
+                if (read(STDIN_FILENO, &rc, 1) <= 0) break;
+
+                if (rc == 18) { // Ctrl+R -> search further back
+                    if (found_idx > 0) {
+                        int next_found = search_history(search_query, found_idx - 1);
+                        if (next_found >= 0) found_idx = next_found;
+                    }
+                } else if (rc == 127 || rc == 8) { // Backspace
+                    if (!search_query.empty()) {
+                        search_query.pop_back();
+                        found_idx = search_history(search_query, static_cast<int>(history_.size()) - 1);
+                    }
+                } else if (rc == 27 || rc == 7 || rc == 3) { // ESC, Ctrl+G, Ctrl+C -> cancel
+                    break;
+                } else if (rc == '\n' || rc == '\r') { // Enter -> submit matched command
+                    if (found_idx >= 0 && found_idx < static_cast<int>(history_.size())) {
+                        buffer = history_[found_idx];
+                        cursor_pos = buffer.size();
+                    }
+                    std::cout << "\n";
+                    return buffer;
+                } else if (static_cast<unsigned char>(rc) >= 32) { // Character input
+                    search_query.push_back(rc);
+                    found_idx = search_history(search_query, static_cast<int>(history_.size()) - 1);
+                } else {
+                    // Control key -> put matched text into buffer and resume editing
+                    if (found_idx >= 0 && found_idx < static_cast<int>(history_.size())) {
+                        buffer = history_[found_idx];
+                        cursor_pos = buffer.size();
+                    }
+                    break;
+                }
+            }
+            redraw();
+            continue;
+        }
+
         // Escape Sequence (Arrows, Home, End, Delete)
         if (c == '\033') {
             char seq[5];
@@ -895,6 +962,14 @@ bool ReplSession::handle_slash_command(const std::string& cmd_line) {
             prefs.set_global_pref("architect_mode", true);
             prefs.set_global_pref("architect_model", arg);
             std::cout << ansi::BOLD_MAGENTA << i18n::t("arch_on", {{"arch", arg}, {"editor", cfg.active_model}}) << ansi::RESET << "\n";
+        }
+    }
+    else if (command == "/dryrun" || command == "/dry-run") {
+        cfg.dry_run = !cfg.dry_run;
+        if (cfg.dry_run) {
+            std::cout << ansi::BOLD_CYAN << i18n::t("dryrun_on") << ansi::RESET << "\n";
+        } else {
+            std::cout << ansi::BOLD_GREEN << i18n::t("dryrun_off") << ansi::RESET << "\n";
         }
     }
     else if (command == "/lang" || command == "/language") {
@@ -1534,49 +1609,61 @@ bool ReplSession::handle_slash_command(const std::string& cmd_line) {
     return true;
 }
 
+static void repl_sigint_handler(int) {
+    utils::HttpClient::cancel_active_stream();
+}
+
 void ReplSession::print_help() const {
-    std::cout << "\n" << ansi::BOLD_CYAN << "Comandos Disponíveis no llmCli C++:" << ansi::RESET << "\n"
-              << "  " << ansi::BOLD_YELLOW << "/yolo" << ansi::RESET << "             - Alterna o modo YOLO (salva preferência por LLM e global)\n"
-              << "  " << ansi::BOLD_YELLOW << "/architect [mod]" << ansi::RESET << "  - Alterna Modo Arquiteto (planejador forte + editor rápido)\n"
-              << "  " << ansi::BOLD_YELLOW << "/lang [código]" << ansi::RESET << "    - Altera o idioma do sistema (pt, en, es, de, fr, zh, ru, hi, auto)\n"
-              << "  " << ansi::BOLD_YELLOW << "/scan <ip/host>" << ansi::RESET << "   - Escaneia o IP e detecta servidores e modelos ativos\n"
-              << "  " << ansi::BOLD_YELLOW << "/host <ip/host>" << ansi::RESET << "   - Conecta ao host e define como servidor local ativo\n"
-              << "  " << ansi::BOLD_YELLOW << "/model <nome>" << ansi::RESET << "     - Troca o modelo de LLM (carrega preferências salvas)\n"
-              << "  " << ansi::BOLD_YELLOW << "/models" << ansi::RESET << "           - Exibe lista e status de todos os provedores\n"
-              << "  " << ansi::BOLD_YELLOW << "/key [var] [val]" << ansi::RESET << "   - Exibe ou configura chaves de API salvas no .env\n"
-              << "  " << ansi::BOLD_YELLOW << "/mcp" << ansi::RESET << "              - Lista servidores MCP e ferramentas dinâmicas ativas\n\n"
-              << "  " << ansi::BOLD_YELLOW << "/add <caminho>" << ansi::RESET << "    - Adiciona arquivo ou diretório ao contexto da IA\n"
-              << "  " << ansi::BOLD_YELLOW << "/drop <caminho>" << ansi::RESET << "   - Remove arquivo do contexto\n"
-              << "  " << ansi::BOLD_YELLOW << "/files" << ansi::RESET << "            - Lista arquivos carregados no contexto atual\n"
-              << "  " << ansi::BOLD_YELLOW << "/index" << ansi::RESET << "            - Indexa a base de código para busca semântica local\n"
-              << "  " << ansi::BOLD_YELLOW << "/search <termo>" << ansi::RESET << "  - Realiza busca semântica/RAG no código indexado\n"
-              << "  " << ansi::BOLD_YELLOW << "/web <termo>" << ansi::RESET << "     - Pesquisa na web (DuckDuckGo/Tavily) e traz respostas\n\n"
-              << "  " << ansi::BOLD_YELLOW << "/diff" << ansi::RESET << "             - Exibe alterações Git não commitadas\n"
-              << "  " << ansi::BOLD_YELLOW << "/commit [msg]" << ansi::RESET << "      - Gera commit semântico via IA ou cria commit direto\n"
-              << "  " << ansi::BOLD_YELLOW << "/review" << ansi::RESET << "           - Executa Code Review das alterações Git pendentes\n"
-              << "  " << ansi::BOLD_YELLOW << "/undo" << ansi::RESET << "             - Reverte a última modificação ou commit gerado pela IA\n"
-              << "  " << ansi::BOLD_YELLOW << "/test [args]" << ansi::RESET << "      - Roda testes e sugere correção automática se falhar\n"
-              << "  " << ansi::BOLD_YELLOW << "/gentest <arq>" << ansi::RESET << "    - Gera suíte de testes unitários para o arquivo\n"
-              << "  " << ansi::BOLD_YELLOW << "/run <comando>" << ansi::RESET << "   - Executa comando no terminal da raiz do projeto\n\n"
-              << "  " << ansi::BOLD_YELLOW << "/plan <objetivo>" << ansi::RESET << " - Cria plano estruturado e gera tarefas automáticas no /todo\n"
-              << "  " << ansi::BOLD_YELLOW << "/todo [add|check]" << ansi::RESET << " - Gerencia checklist interativo de tarefas da sessão\n"
-              << "  " << ansi::BOLD_YELLOW << "/export [md|html]" << ansi::RESET << " - Exporta relatório completo da sessão em Markdown ou HTML\n"
-              << "  " << ansi::BOLD_YELLOW << "/paste" << ansi::RESET << "            - Inicia modo multilinha para colar blocos de código\n"
-              << "  " << ansi::BOLD_YELLOW << "/compact" << ansi::RESET << "          - Compacta o histórico da conversa com resumo consolidado\n"
-              << "  " << ansi::BOLD_YELLOW << "/temp [valor]" << ansi::RESET << "     - Exibe ou altera a temperatura (salva por LLM e global)\n"
-              << "  " << ansi::BOLD_YELLOW << "/system [txt]" << ansi::RESET << "     - Exibe, altera ou redefine o system prompt\n"
-              << "  " << ansi::BOLD_YELLOW << "/clear" << ansi::RESET << "            - Limpa o histórico de mensagens da conversa\n"
-              << "  " << ansi::BOLD_YELLOW << "/reset [prefs|all]" << ansi::RESET << " - Limpa sessão ou redefine preferências salvas\n"
-              << "  " << ansi::BOLD_YELLOW << "/repomap [on|off]" << ansi::RESET << " - Alterna ou ajusta mapeamento RepoMap no contexto\n"
-              << "  " << ansi::BOLD_YELLOW << "/session [cmd]" << ansi::RESET << "    - Salva, carrega ou lista sessões de conversa salvas\n"
-              << "  " << ansi::BOLD_YELLOW << "/tokens" << ansi::RESET << "           - Exibe estimativa de tokens do contexto e da sessão\n"
-              << "  " << ansi::BOLD_YELLOW << "/help" << ansi::RESET << "             - Mostra este menu de ajuda\n"
-              << "  " << ansi::BOLD_YELLOW << "/exit, /quit" << ansi::RESET << "      - Sai do programa\n\n";
+    std::cout << "\n" << ansi::BOLD_CYAN << i18n::t("help_title") << ansi::RESET << "\n\n"
+              << "  " << ansi::BOLD_YELLOW << "/yolo" << ansi::RESET << "             - " << i18n::t("cmd_yolo") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/architect [mod]" << ansi::RESET << "  - " << i18n::t("cmd_architect") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/dryrun" << ansi::RESET << "           - " << i18n::t("cmd_dryrun") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/lang [código]" << ansi::RESET << "    - " << i18n::t("cmd_lang") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/scan <ip/host>" << ansi::RESET << "   - " << i18n::t("cmd_scan") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/host <ip/host>" << ansi::RESET << "   - " << i18n::t("cmd_host") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/model <nome>" << ansi::RESET << "     - " << i18n::t("cmd_model") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/models" << ansi::RESET << "           - " << i18n::t("cmd_models") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/key [var] [val]" << ansi::RESET << "   - " << i18n::t("cmd_key") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/mcp" << ansi::RESET << "              - " << i18n::t("cmd_mcp") << "\n\n"
+              << "  " << ansi::BOLD_YELLOW << "/add <caminho>" << ansi::RESET << "    - " << i18n::t("cmd_add") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/drop <caminho>" << ansi::RESET << "   - " << i18n::t("cmd_drop") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/files" << ansi::RESET << "            - " << i18n::t("cmd_files") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/index" << ansi::RESET << "            - " << i18n::t("cmd_index") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/search <termo>" << ansi::RESET << "  - " << i18n::t("cmd_search") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/web <termo>" << ansi::RESET << "     - " << i18n::t("cmd_web") << "\n\n"
+              << "  " << ansi::BOLD_YELLOW << "/diff" << ansi::RESET << "             - " << i18n::t("cmd_diff") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/commit [msg]" << ansi::RESET << "      - " << i18n::t("cmd_commit") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/review" << ansi::RESET << "           - " << i18n::t("cmd_review") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/undo" << ansi::RESET << "             - " << i18n::t("cmd_undo") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/test [args]" << ansi::RESET << "      - " << i18n::t("cmd_test") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/gentest <arq>" << ansi::RESET << "    - " << i18n::t("cmd_gentest") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/run <comando>" << ansi::RESET << "   - " << i18n::t("cmd_run") << "\n\n"
+              << "  " << ansi::BOLD_YELLOW << "/plan <objetivo>" << ansi::RESET << " - " << i18n::t("cmd_plan") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/todo [add|check]" << ansi::RESET << " - " << i18n::t("cmd_todo") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/export [md|html]" << ansi::RESET << " - " << i18n::t("cmd_export") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/paste" << ansi::RESET << "            - " << i18n::t("cmd_paste") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/compact" << ansi::RESET << "          - " << i18n::t("cmd_compact") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/temp [valor]" << ansi::RESET << "     - " << i18n::t("cmd_temp") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/system [txt]" << ansi::RESET << "     - " << i18n::t("cmd_system") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/agents" << ansi::RESET << "           - " << i18n::t("cmd_agents") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/clear" << ansi::RESET << "            - " << i18n::t("cmd_clear") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/reset [prefs|all]" << ansi::RESET << " - " << i18n::t("cmd_reset") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/repomap [on|off]" << ansi::RESET << " - " << i18n::t("cmd_repomap") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/session [cmd]" << ansi::RESET << "    - " << i18n::t("cmd_session") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/tokens" << ansi::RESET << "           - " << i18n::t("cmd_tokens") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/help" << ansi::RESET << "             - " << i18n::t("cmd_help") << "\n"
+              << "  " << ansi::BOLD_YELLOW << "/exit, /quit" << ansi::RESET << "      - " << i18n::t("cmd_exit") << "\n\n";
 }
 
 void ReplSession::start() {
     Config& cfg = get_config();
     print_banner(cfg.active_model, cfg.yolo_mode);
+
+    struct sigaction sa;
+    sa.sa_handler = repl_sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, nullptr);
 
     while (true) {
         std::string prompt_str = get_prompt_str();

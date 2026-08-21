@@ -40,4 +40,26 @@ void test_i18n_suite() {
 
         llmcli::i18n::set_active_language("pt-BR");
     });
+
+    run_test("Traduções de Dry-Run e Comandos em múltiplos idiomas", [](){
+        llmcli::i18n::set_active_language("pt-BR");
+        std::string pt_dry = llmcli::i18n::t("dryrun_on");
+        if (pt_dry.find("DRY-RUN") == std::string::npos) throw std::runtime_error("dryrun_on em pt-BR incorreto");
+
+        std::string pt_cmd = llmcli::i18n::t("cmd_yolo");
+        if (pt_cmd.empty() || pt_cmd == "cmd_yolo") throw std::runtime_error("cmd_yolo em pt-BR não traduzido");
+
+        llmcli::i18n::set_active_language("en-US");
+        std::string en_dry = llmcli::i18n::t("dryrun_on");
+        if (en_dry.find("DRY-RUN MODE ENABLED") == std::string::npos) throw std::runtime_error("dryrun_on em en-US incorreto");
+
+        std::string en_cmd = llmcli::i18n::t("cmd_yolo");
+        if (en_cmd.find("Toggles YOLO") == std::string::npos) throw std::runtime_error("cmd_yolo em en-US incorreto: " + en_cmd);
+
+        llmcli::i18n::set_active_language("es-ES");
+        std::string es_help = llmcli::i18n::t("help_title");
+        if (es_help.find("Comandos") == std::string::npos) throw std::runtime_error("help_title em es-ES incorreto: " + es_help);
+
+        llmcli::i18n::set_active_language("pt-BR");
+    });
 }
