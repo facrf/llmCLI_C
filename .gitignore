@@ -1,0 +1,39 @@
+# Compilação e Binários
+build/
+bin/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+llm-cli
+test_runner
+
+# Configurações e Segredos
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Caches e Arquivos Temporários
+.cache/
+tmp/
+scratch/
+.llmcli_history
+.llmcli_preferences.json
+test_prefs.json
+session_export_*.md
+session_export_*.html
+dummy_test.txt
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+compile_commands.json
+.clangd/
