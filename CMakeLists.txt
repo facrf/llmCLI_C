@@ -1,8 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
 project(llmCli_C VERSION 0.2.0 LANGUAGES CXX)
 
+include(CTest)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+option(LLMCLI_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
 include_directories(include)
 
@@ -41,6 +46,11 @@ set(CORE_SOURCES
 
 add_library(llmcli_core STATIC ${CORE_SOURCES})
 target_include_directories(llmcli_core PUBLIC include)
+target_compile_options(llmcli_core PRIVATE -Wall -Wextra -Wpedantic)
+if(LLMCLI_ENABLE_SANITIZERS)
+    target_compile_options(llmcli_core PUBLIC -fsanitize=address,undefined -fno-omit-frame-pointer -g)
+    target_link_options(llmcli_core INTERFACE -fsanitize=address,undefined)
+endif()
 
 # Main Executable
 add_executable(llm-cli src/main.cpp)
@@ -56,6 +66,9 @@ add_executable(test_runner
     tests/test_file_tracker.cpp
     tests/test_semantic_indexer.cpp
     tests/test_todo_manager.cpp
+    tests/test_completer.cpp
+    tests/test_safety.cpp
 )
 target_link_libraries(test_runner PRIVATE llmcli_core pthread)
 set_target_properties(test_runner PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin")
+add_test(NAME llmcli_unit_tests COMMAND test_runner)

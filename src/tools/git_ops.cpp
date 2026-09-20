@@ -151,19 +151,15 @@ std::pair<bool, std::string> undo_last_checkpoint() {
     Config& cfg = get_config();
     auto [code, last_msg, err] = run_git_cmd({"log", "-1", "--pretty=%B"});
     if (code == 0 && last_msg.find(cfg.git.commit_prefix) != std::string::npos) {
-        auto [code_reset, _, err_reset] = run_git_cmd({"reset", "--hard", "HEAD~1"});
-        if (code_reset == 0) {
-            return {true, "Última alteração desfeita com sucesso (Commit revertido: " + last_msg + ")."};
+        // Revert preserves history and does not discard unrelated working-tree
+        // changes, unlike a hard reset.
+        auto [code_revert, _, err_revert] = run_git_cmd({"revert", "--no-edit", "HEAD"});
+        if (code_revert == 0) {
+            return {true, "Checkpoint revertido com segurança: " + last_msg};
         }
-        return {false, "Falha ao reverter commit: " + err_reset};
+        return {false, "Falha ao criar commit de reversão: " + err_revert};
     }
-
-    // Try restoring working tree
-    auto [code_rest, _, err_rest] = run_git_cmd({"restore", "."});
-    if (code_rest == 0) {
-        return {true, "Modificações não commitadas foram revertidas com sucesso."};
-    }
-    return {false, "Não foi possível reverter: " + err_rest};
+    return {false, "O último commit não é um checkpoint llmCli; nenhuma alteração foi descartada."};
 }
 
 std::pair<bool, std::string> create_user_commit(const std::string& message) {

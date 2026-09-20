@@ -1573,13 +1573,17 @@ bool ReplSession::handle_slash_command(const std::string& cmd_line) {
             }
         }
 
-        std::filesystem::path out_p;
-        if (fmt == "html") {
-            out_p = exporter.export_html(target_p);
-        } else {
-            out_p = exporter.export_markdown(target_p);
+        try {
+            std::filesystem::path out_p;
+            if (fmt == "html") {
+                out_p = exporter.export_html(target_p);
+            } else {
+                out_p = exporter.export_markdown(target_p);
+            }
+            std::cout << ansi::BOLD_GREEN << "✓ Sessão exportada com sucesso em: " << ansi::BOLD_YELLOW << out_p.string() << ansi::RESET << "\n";
+        } catch (const std::exception& e) {
+            std::cout << ansi::BOLD_RED << "Falha ao exportar sessão: " << e.what() << ansi::RESET << "\n";
         }
-        std::cout << ansi::BOLD_GREEN << "✓ Sessão exportada com sucesso em: " << ansi::BOLD_YELLOW << out_p.string() << ansi::RESET << "\n";
     }
     else if (command == "/mcp") {
         const auto& servers = agent_->mcp_manager().servers();

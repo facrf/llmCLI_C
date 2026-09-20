@@ -1,4 +1,5 @@
 #include "llmcli/utils/http.hpp"
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -54,25 +55,51 @@ HttpResponse HttpClient::get(
     double timeout_seconds
 ) {
     HttpResponse resp;
-    std::string cmd = "curl -s -S -w \"\\n%{http_code}\" --max-time " + std::to_string(static_cast<int>(timeout_seconds));
-    
-    for (const auto& [k, v] : headers) {
-        cmd += " -H \"" + k + ": " + v + "\"";
-    }
-    cmd += " \"" + url + "\" 2>&1";
-
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        resp.error = "Falha ao abrir pipe curl";
+    int out_pipe[2];
+    if (pipe(out_pipe) != 0) {
+        resp.error = "Falha ao criar pipe para curl";
         return resp;
     }
 
+    const pid_t pid = fork();
+    if (pid < 0) {
+        close(out_pipe[0]); close(out_pipe[1]);
+        resp.error = "Falha no fork do processo curl";
+        return resp;
+    }
+    if (pid == 0) {
+        close(out_pipe[0]);
+        dup2(out_pipe[1], STDOUT_FILENO);
+        dup2(out_pipe[1], STDERR_FILENO);
+        close(out_pipe[1]);
+        std::vector<std::string> args = {
+            "curl", "-s", "-S", "--max-time",
+            std::to_string(std::max(1, static_cast<int>(timeout_seconds))),
+            "-w", "\n%{http_code}"
+        };
+        for (const auto& [key, value] : headers) {
+            args.push_back("-H");
+            args.push_back(key + ": " + value);
+        }
+        args.push_back("--");
+        args.push_back(url);
+        std::vector<char*> c_args;
+        for (auto& arg : args) c_args.push_back(arg.data());
+        c_args.push_back(nullptr);
+        execvp("curl", c_args.data());
+        _exit(127);
+    }
+    close(out_pipe[1]);
+
     std::string raw_output;
     std::array<char, 4096> buffer;
-    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-        raw_output += buffer.data();
+    ssize_t bytes_read;
+    while ((bytes_read = read(out_pipe[0], buffer.data(), buffer.size())) > 0) {
+        raw_output.append(buffer.data(), bytes_read);
     }
-    pclose(pipe);
+    close(out_pipe[0]);
+    int process_status = 0;
+    waitpid(pid, &process_status, 0);
 
     // Extract http_code from last line
     auto last_newline = raw_output.find_last_of("\r\n");
@@ -98,7 +125,7 @@ HttpResponse HttpClient::get(
         }
     } catch (...) {
         resp.status_code = 0;
-        resp.error = "Falha na requisição HTTP";
+        resp.error = raw_output.empty() ? "Falha na requisição HTTP" : raw_output;
     }
 
     return resp;
@@ -157,6 +184,7 @@ HttpResponse HttpClient::post_json(
         args.push_back("@-");
         args.push_back("-w");
         args.push_back("\n%{http_code}");
+        args.push_back("--");
         args.push_back(url);
 
         std::vector<char*> c_args;
@@ -272,6 +300,7 @@ bool HttpClient::post_stream(
 
         args.push_back("--data-binary");
         args.push_back("@-");
+        args.push_back("--");
         args.push_back(url);
 
         std::vector<char*> c_args;

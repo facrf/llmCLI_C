@@ -216,6 +216,7 @@ void Session::compact_history(const std::string& summary_text, size_t keep_last_
 
 bool Session::save_to_file(const std::filesystem::path& file_path) const {
     try {
+        if (!get_config().is_path_safe(file_path)) return false;
         if (file_path.has_parent_path() && !std::filesystem::exists(file_path.parent_path())) {
             std::filesystem::create_directories(file_path.parent_path());
         }
@@ -251,6 +252,7 @@ bool Session::save_to_file(const std::filesystem::path& file_path) const {
 
 bool Session::load_from_file(const std::filesystem::path& file_path) {
     try {
+        if (!get_config().is_path_safe(file_path)) return false;
         if (!std::filesystem::exists(file_path)) return false;
         std::ifstream in(file_path);
         if (!in.is_open()) return false;

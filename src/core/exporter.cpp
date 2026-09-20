@@ -4,8 +4,17 @@
 #include <sstream>
 #include <chrono>
 #include <iomanip>
+#include <stdexcept>
 
 namespace llmcli::core {
+
+namespace {
+void validate_export_destination(const std::filesystem::path& destination) {
+    if (!get_config().is_path_safe(destination)) {
+        throw std::runtime_error("O destino de exportação deve estar dentro do workspace.");
+    }
+}
+} // namespace
 
 SessionExporter::SessionExporter(const Session& session, const std::filesystem::path& project_root)
     : session_(session) {
@@ -48,6 +57,7 @@ std::filesystem::path SessionExporter::export_markdown(const std::filesystem::pa
     } else {
         dest = target_path.is_absolute() ? target_path : (project_root_ / target_path);
     }
+    validate_export_destination(dest);
 
     auto [p_tok, c_tok, tot_tok] = session_.get_cumulative_tokens();
     auto tracked = session_.file_tracker().list_files();
@@ -88,7 +98,9 @@ std::filesystem::path SessionExporter::export_markdown(const std::filesystem::pa
         std::filesystem::create_directories(dest.parent_path());
     }
     std::ofstream f(dest);
+    if (!f.is_open()) throw std::runtime_error("Não foi possível abrir o arquivo de exportação.");
     f << out.str();
+    if (!f.good()) throw std::runtime_error("Falha ao gravar a exportação da sessão.");
 
     return dest;
 }
@@ -101,6 +113,7 @@ std::filesystem::path SessionExporter::export_html(const std::filesystem::path& 
     } else {
         dest = target_path.is_absolute() ? target_path : (project_root_ / target_path);
     }
+    validate_export_destination(dest);
 
     auto [p_tok, c_tok, tot_tok] = session_.get_cumulative_tokens();
     auto tracked = session_.file_tracker().list_files();
@@ -185,7 +198,9 @@ std::filesystem::path SessionExporter::export_html(const std::filesystem::path& 
         std::filesystem::create_directories(dest.parent_path());
     }
     std::ofstream f(dest);
+    if (!f.is_open()) throw std::runtime_error("Não foi possível abrir o arquivo de exportação.");
     f << out.str();
+    if (!f.good()) throw std::runtime_error("Falha ao gravar a exportação da sessão.");
 
     return dest;
 }

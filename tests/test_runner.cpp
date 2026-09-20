@@ -12,6 +12,7 @@ void test_file_tracker_suite();
 void test_semantic_indexer_suite();
 void test_i18n_suite();
 void test_completer_suite();
+void test_safety_suite();
 
 int g_passed = 0;
 int g_failed = 0;
@@ -55,6 +56,9 @@ int main() {
 
     std::cout << "\n" << llmcli::ansi::BOLD_YELLOW << "--- Testando Completer & Autocomplete ---" << llmcli::ansi::RESET << "\n";
     test_completer_suite();
+
+    std::cout << "\n" << llmcli::ansi::BOLD_YELLOW << "--- Testando Proteções de Segurança ---" << llmcli::ansi::RESET << "\n";
+    test_safety_suite();
 
     std::cout << "\n============================================\n";
     std::cout << "Resultados: " << llmcli::ansi::BOLD_GREEN << g_passed << " passaram" << llmcli::ansi::RESET

@@ -131,7 +131,7 @@ YOLO_MODE=false
 | **`/undo`** | `/undo` | Reverte o último checkpoint realizado. |
 | **`/test`** | `/test [args]` | Executa suíte de testes. |
 | **`/gentest`** | `/gentest <arquivo>` | Gera testes unitários para o arquivo. |
-| **`/run`** | `/run <comando>` | Executa comando de terminal no workspace. |
+| **`/run`** | `/run <comando>` | Executa um comando simples no workspace (sem pipes, redirecionamentos ou comandos encadeados). |
 | **`/plan`** | `/plan <objetivo>` | Cria plano técnico e tarefas no `/todo`. |
 | **`/todo`** | `/todo [add\|check\|clear]` | Gerencia o checklist de tarefas da sessão. |
 | **`/export`** | `/export [md\|html]` | Exporta relatório da sessão em Markdown ou HTML. |

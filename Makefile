@@ -1,5 +1,9 @@
 CXX ?= g++
 CXXFLAGS ?= -std=c++20 -Wall -Wextra -O2 -pthread -Iinclude
+SANITIZE ?= 0
+ifeq ($(SANITIZE),1)
+CXXFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -g
+endif
 BIN_DIR = bin
 BUILD_DIR = build
 
@@ -45,7 +49,8 @@ TEST_SRCS = \
 	tests/test_file_tracker.cpp \
 	tests/test_semantic_indexer.cpp \
 	tests/test_todo_manager.cpp \
-	tests/test_completer.cpp
+	tests/test_completer.cpp \
+	tests/test_safety.cpp
 
 CORE_OBJS = $(CORE_SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
 MAIN_OBJ = $(BUILD_DIR)/main.o
@@ -54,7 +59,7 @@ TEST_OBJS = $(TEST_SRCS:tests/%.cpp=$(BUILD_DIR)/tests/%.o)
 TARGET = $(BIN_DIR)/llm-cli
 TEST_TARGET = $(BIN_DIR)/test_runner
 
-.PHONY: all clean test dirs
+.PHONY: all clean test test-sanitize dirs
 
 all: dirs $(TARGET)
 
@@ -82,6 +87,10 @@ $(TEST_TARGET): $(CORE_OBJS) $(TEST_OBJS)
 
 test: dirs $(TEST_TARGET)
 	@./$(TEST_TARGET)
+
+test-sanitize:
+	@$(MAKE) clean
+	@$(MAKE) SANITIZE=1 test
 
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)

@@ -84,6 +84,9 @@ void McpManager::add_server(
 
 bool McpManager::save_config(const std::filesystem::path& target_path) {
     std::filesystem::path dest = target_path.empty() ? (project_root_ / "mcp_servers.json") : target_path;
+    if (!get_config().is_path_safe(dest)) {
+        return false;
+    }
     try {
         json j;
         json s_map = json::object();
@@ -96,8 +99,9 @@ bool McpManager::save_config(const std::filesystem::path& target_path) {
             std::filesystem::create_directories(dest.parent_path());
         }
         std::ofstream f(dest);
+        if (!f.is_open()) return false;
         f << j.dump(2);
-        return true;
+        return f.good();
     } catch (...) {
         return false;
     }
