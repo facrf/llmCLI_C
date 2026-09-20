@@ -46,6 +46,11 @@ make test
 cp .env.example .env
 ```
 
+The executable finds the `.env` in its installation directory, so this
+configuration remains stable when it is called from a shell alias in another
+workspace. Exported shell variables take precedence. Running `--host <ip>` or
+`/host <ip>` also saves discovered local endpoints for subsequent runs.
+
 ### 3. Run llmCli C++
 
 ```bash
@@ -54,6 +59,9 @@ cp .env.example .env
 
 # Run with specific model
 ./bin/llm-cli -m llamacpp/default
+
+# Short alias for the default local Ollama model
+./bin/llm-cli -m ollama
 
 # Autonomous YOLO execution
 ./bin/llm-cli -y

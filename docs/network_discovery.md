@@ -23,6 +23,10 @@ O **llmCli C++** possui um subsistema assíncrono de varredura de rede capaz de 
 ./bin/llm-cli --host 192.168.0.11
 ```
 
+O comando salva os endpoints detectados e o modelo selecionado nas preferências
+do usuário. Assim, aliases de shell e execuções feitas de outros diretórios
+reutilizam a conexão sem exigir novo `--host`.
+
 ### 3. Durante a Sessão Interativa (Slash Commands)
 
 ```text

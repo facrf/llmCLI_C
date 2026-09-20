@@ -1,6 +1,10 @@
 #include "llmcli/config.hpp"
 #include "llmcli/utils/env.hpp"
+#include "llmcli/utils/http.hpp"
 #include "llmcli/core/session.hpp"
+#include "llmcli/providers/registry.hpp"
+#include "llmcli/providers/ollama.hpp"
+#include "llmcli/providers/llamacpp.hpp"
 #include <cassert>
 #include <functional>
 #include <stdexcept>
@@ -58,6 +62,45 @@ void test_config_suite() {
             throw std::runtime_error("EnvLoader não atualizou valor alterado");
         }
         std::filesystem::remove(test_env);
+    });
+
+    run_test("Resolução de aliases de provedores locais", [](){
+        auto ollama = llmcli::providers::ProviderRegistry::create_provider("ollama");
+        if (!std::dynamic_pointer_cast<llmcli::providers::OllamaProvider>(ollama)) {
+            throw std::runtime_error("Alias ollama foi associado ao provedor incorreto");
+        }
+
+        auto llama = llmcli::providers::ProviderRegistry::create_provider("llama.cpp/default");
+        if (!std::dynamic_pointer_cast<llmcli::providers::LlamaCppProvider>(llama)) {
+            throw std::runtime_error("Alias llama.cpp não foi normalizado para llamacpp");
+        }
+    });
+
+    run_test("Parser HTTP preserva corpo e extrai status do curl", [](){
+        const std::string raw = "{\"version\":\"1.2.3\"}\n__LLMCLI_HTTP_STATUS__:200";
+        auto response = llmcli::utils::HttpClient::parse_curl_response(raw);
+        if (!response.success || response.status_code != 200) {
+            throw std::runtime_error("Status HTTP 200 não foi reconhecido");
+        }
+        if (response.body != "{\"version\":\"1.2.3\"}") {
+            throw std::runtime_error("Corpo HTTP foi alterado pelo parser");
+        }
+
+        auto failed = llmcli::utils::HttpClient::parse_curl_response(
+            "erro\n__LLMCLI_HTTP_STATUS__:503", 22
+        );
+        if (failed.success || failed.status_code != 503 || failed.error.empty()) {
+            throw std::runtime_error("Falha HTTP não foi propagada corretamente");
+        }
+    });
+
+    run_test("Descoberta do diretório do executável", [](){
+        auto executable_dir = llmcli::utils::EnvLoader::executable_dir();
+#if defined(__linux__)
+        if (executable_dir.empty() || executable_dir.filename() != "bin") {
+            throw std::runtime_error("Diretório de instalação do executável não foi detectado");
+        }
+#endif
     });
 
     run_test("Rollback de mensagem em falha de sessão (pop_last_user_message)", [](){

@@ -70,6 +70,17 @@ LLMCLI_LANG=pt-BR
 YOLO_MODE=false
 ```
 
+### Uso por alias e prioridade de configuração
+
+O binário encontra o `.env` na pasta onde foi instalado, portanto a
+configuração não muda quando ele é chamado por um alias de shell em outro
+projeto. A precedência é: variáveis já exportadas no shell, `.env` da
+instalação, `.env` do workspace e preferências persistentes.
+
+Para usar um servidor local remoto sem editar o `.env`, conecte uma vez com
+`--host <ip>` ou `/host <ip>`. Os endpoints detectados são salvos nas
+preferências do usuário e serão reutilizados nas execuções seguintes.
+
 ---
 
 ## 🎮 4. Executando o llmCli
@@ -80,6 +91,9 @@ YOLO_MODE=false
 
 # Iniciar com modelo local llama.cpp
 ./bin/llm-cli -m llamacpp/default
+
+# Alias curto para o provedor Ollama (modelo local padrão)
+./bin/llm-cli -m ollama
 
 # Iniciar no modo autônomo YOLO
 ./bin/llm-cli -y

@@ -161,10 +161,22 @@ int main(int argc, char** argv) {
             if (s.provider_type == "llamacpp") cfg.local_endpoints.llamacpp = s.base_url;
         }
 
+        if (!services.empty()) {
+            llmcli::get_preferences().set_global_pref("local_endpoints", {
+                {"llamacpp", cfg.local_endpoints.llamacpp},
+                {"ollama", cfg.local_endpoints.ollama},
+                {"lmstudio", cfg.local_endpoints.lmstudio},
+                {"vllm", cfg.local_endpoints.vllm}
+            });
+            std::cout << llmcli::ansi::DIM << "Endpoints locais salvos nas preferências do usuário."
+                      << llmcli::ansi::RESET << "\n";
+        }
+
         if (!services.empty() && model_override.empty()) {
             auto chosen = services[0];
             std::string m_name = chosen.models.empty() ? "default" : chosen.models[0];
             cfg.active_model = chosen.provider_type + "/" + m_name;
+            llmcli::get_preferences().set_global_pref("last_active_model", cfg.active_model);
             std::cout << llmcli::ansi::BOLD_GREEN << "✓ Modelo ativo configurado automaticamente para: "
                       << llmcli::ansi::BOLD_YELLOW << cfg.active_model << llmcli::ansi::RESET << "\n\n";
         }

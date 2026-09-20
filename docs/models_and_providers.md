@@ -13,8 +13,12 @@ O **llmCli C++** possui arquitetura unificada para suportar inferência em LLMs 
 
 ### 2. Ollama
 - **Endpoint Padrão:** `http://localhost:11434`
-- **Exemplo de Uso:** `./bin/llm-cli -m ollama/qwen2.5-coder:7b` ou `/model ollama/deepseek-r1:latest`
+- **Exemplo de Uso:** `./bin/llm-cli -m ollama`, `./bin/llm-cli -m ollama/qwen2.5-coder:7b` ou `/model ollama/deepseek-r1:latest`
 - **Características:** Gestão simplificada de modelos locais e listagem automática via `/api/tags`.
+
+O alias `ollama` seleciona corretamente o provedor Ollama e usa o modelo
+padrão configurado. Para escolher uma tag específica, use sempre o formato
+`ollama/<modelo>:<tag>`.
 
 ### 3. LM Studio
 - **Endpoint Padrão:** `http://localhost:1234/v1`

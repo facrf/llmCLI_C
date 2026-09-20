@@ -87,6 +87,11 @@ LLMCLI_LANG=pt-BR
 YOLO_MODE=false
 ```
 
+O binário localiza este `.env` pela própria pasta de instalação, inclusive
+quando é chamado por um alias de shell a partir de outro projeto. Variáveis
+exportadas no ambiente continuam tendo prioridade. O comando `/host <ip>`
+também salva os endpoints locais descobertos nas preferências do usuário.
+
 ### 3. Executar o llmCli C++
 
 ```bash
@@ -95,6 +100,9 @@ YOLO_MODE=false
 
 # Ou executar com um modelo específico
 ./bin/llm-cli -m llamacpp/default
+
+# Alias curto para o Ollama (usa o modelo local padrão)
+./bin/llm-cli -m ollama
 
 # Conectar e escanear servidores em outra máquina da rede local
 ./bin/llm-cli --host 192.168.0.11 --yolo

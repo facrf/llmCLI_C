@@ -4,8 +4,22 @@
 #include <cstdlib>
 #include <algorithm>
 #include <vector>
+#include <array>
+#include <unistd.h>
 
 namespace llmcli::utils {
+
+std::filesystem::path EnvLoader::executable_dir() {
+#if defined(__linux__)
+    std::array<char, 4096> path_buffer{};
+    const ssize_t length = ::readlink("/proc/self/exe", path_buffer.data(), path_buffer.size() - 1);
+    if (length <= 0) return {};
+    path_buffer[static_cast<std::size_t>(length)] = '\0';
+    return std::filesystem::path(path_buffer.data()).parent_path();
+#else
+    return {};
+#endif
+}
 
 static std::string trim(const std::string& str) {
     auto first = str.find_first_not_of(" \t\r\n");

@@ -16,6 +16,44 @@ namespace llmcli::utils {
 
 static std::atomic<bool> g_stream_cancelled{false};
 static std::atomic<pid_t> g_active_curl_pid{0};
+static constexpr const char* HTTP_STATUS_MARKER = "\n__LLMCLI_HTTP_STATUS__:";
+
+HttpResponse HttpClient::parse_curl_response(const std::string& raw_output, int exit_code) {
+    HttpResponse resp;
+    const std::string marker = HTTP_STATUS_MARKER;
+    const auto marker_pos = raw_output.rfind(marker);
+    if (marker_pos == std::string::npos) {
+        resp.error = raw_output.empty() ? "Falha na requisição HTTP" : raw_output;
+        return resp;
+    }
+
+    resp.body = raw_output.substr(0, marker_pos);
+    std::string code_str = raw_output.substr(marker_pos + marker.size());
+    const auto first = code_str.find_first_not_of(" \t\r\n");
+    const auto last = code_str.find_last_not_of(" \t\r\n");
+    if (first == std::string::npos || last == std::string::npos) {
+        resp.error = "Resposta HTTP sem código de status";
+        return resp;
+    }
+    code_str = code_str.substr(first, last - first + 1);
+
+    try {
+        resp.status_code = std::stoi(code_str);
+    } catch (...) {
+        resp.error = "Código de status HTTP inválido: " + code_str;
+        return resp;
+    }
+
+    resp.success = exit_code == 0 && resp.status_code >= 200 && resp.status_code < 300;
+    if (exit_code != 0) {
+        resp.error = resp.body.empty()
+            ? "curl encerrou com código " + std::to_string(exit_code)
+            : resp.body;
+    } else if (resp.status_code == 0) {
+        resp.error = "Servidor inacessível";
+    }
+    return resp;
+}
 
 void HttpClient::cancel_active_stream() {
     g_stream_cancelled = true;
@@ -75,7 +113,7 @@ HttpResponse HttpClient::get(
         std::vector<std::string> args = {
             "curl", "-s", "-S", "--max-time",
             std::to_string(std::max(1, static_cast<int>(timeout_seconds))),
-            "-w", "\n%{http_code}"
+            "-w", std::string(HTTP_STATUS_MARKER) + "%{http_code}"
         };
         for (const auto& [key, value] : headers) {
             args.push_back("-H");
@@ -101,34 +139,8 @@ HttpResponse HttpClient::get(
     int process_status = 0;
     waitpid(pid, &process_status, 0);
 
-    // Extract http_code from last line
-    auto last_newline = raw_output.find_last_of("\r\n");
-    std::string code_str;
-    if (last_newline != std::string::npos) {
-        auto prev_newline = raw_output.find_last_of("\r\n", last_newline - 1);
-        if (prev_newline != std::string::npos) {
-            code_str = raw_output.substr(prev_newline + 1, last_newline - prev_newline - 1);
-            resp.body = raw_output.substr(0, prev_newline);
-        } else {
-            code_str = raw_output.substr(0, last_newline);
-            resp.body = "";
-        }
-    } else {
-        code_str = raw_output;
-    }
-
-    try {
-        resp.status_code = std::stoi(code_str);
-        resp.success = (resp.status_code >= 200 && resp.status_code < 300);
-        if (resp.status_code == 0 && resp.error.empty()) {
-            resp.error = "Servidor inacessível";
-        }
-    } catch (...) {
-        resp.status_code = 0;
-        resp.error = raw_output.empty() ? "Falha na requisição HTTP" : raw_output;
-    }
-
-    return resp;
+    const int exit_code = WIFEXITED(process_status) ? WEXITSTATUS(process_status) : -1;
+    return parse_curl_response(raw_output, exit_code);
 }
 
 HttpResponse HttpClient::post_json(
@@ -183,7 +195,7 @@ HttpResponse HttpClient::post_json(
         args.push_back("--data-binary");
         args.push_back("@-");
         args.push_back("-w");
-        args.push_back("\n%{http_code}");
+        args.push_back(std::string(HTTP_STATUS_MARKER) + "%{http_code}");
         args.push_back("--");
         args.push_back(url);
 
@@ -222,31 +234,8 @@ HttpResponse HttpClient::post_json(
     int status;
     waitpid(pid, &status, 0);
 
-    // Extract http_code from last line
-    auto last_newline = raw_output.find_last_of("\r\n");
-    std::string code_str;
-    if (last_newline != std::string::npos) {
-        auto prev_newline = raw_output.find_last_of("\r\n", last_newline - 1);
-        if (prev_newline != std::string::npos) {
-            code_str = raw_output.substr(prev_newline + 1, last_newline - prev_newline - 1);
-            resp.body = raw_output.substr(0, prev_newline);
-        } else {
-            code_str = raw_output.substr(0, last_newline);
-            resp.body = "";
-        }
-    } else {
-        code_str = raw_output;
-    }
-
-    try {
-        resp.status_code = std::stoi(code_str);
-        resp.success = (resp.status_code >= 200 && resp.status_code < 300);
-    } catch (...) {
-        resp.status_code = 0;
-        resp.error = raw_output;
-    }
-
-    return resp;
+    const int exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    return parse_curl_response(raw_output, exit_code);
 }
 
 bool HttpClient::post_stream(
@@ -288,7 +277,7 @@ bool HttpClient::post_stream(
         close(out_pipe[1]);
 
         std::vector<std::string> args = {
-            "curl", "-s", "-S", "-N", "-X", "POST",
+            "curl", "-s", "-S", "-N", "--fail-with-body", "-X", "POST",
             "--max-time", std::to_string(static_cast<int>(timeout_seconds)),
             "-H", "Content-Type: application/json"
         };
@@ -364,7 +353,12 @@ bool HttpClient::post_stream(
     int status;
     waitpid(pid, &status, 0);
 
-    return !g_stream_cancelled;
+    const bool process_ok = WIFEXITED(status) && WEXITSTATUS(status) == 0;
+    if (!g_stream_cancelled && !process_ok && out_error.empty()) {
+        out_error = "curl encerrou com código " +
+            std::to_string(WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+    }
+    return !g_stream_cancelled && process_ok;
 }
 
 } // namespace llmcli::utils

@@ -1231,6 +1231,17 @@ bool ReplSession::handle_slash_command(const std::string& cmd_line) {
                 if (s.provider_type == "llamacpp") cfg.local_endpoints.llamacpp = s.base_url;
             }
 
+            if (command == "/host") {
+                get_preferences().set_global_pref("local_endpoints", {
+                    {"llamacpp", cfg.local_endpoints.llamacpp},
+                    {"ollama", cfg.local_endpoints.ollama},
+                    {"lmstudio", cfg.local_endpoints.lmstudio},
+                    {"vllm", cfg.local_endpoints.vllm}
+                });
+                std::cout << ansi::DIM << "Endpoints locais salvos nas preferências do usuário."
+                          << ansi::RESET << "\n";
+            }
+
             if (command == "/host" || (services.size() == 1 && !services[0].models.empty())) {
                 auto chosen_s = services[0];
                 std::string m_name = chosen_s.models.empty() ? "default" : chosen_s.models[0];

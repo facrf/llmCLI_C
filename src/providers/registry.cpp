@@ -104,10 +104,26 @@ std::shared_ptr<LLMProvider> ProviderRegistry::create_provider(const std::string
         provider_type = model_str.substr(0, slash_pos);
         model_name = model_str.substr(slash_pos + 1);
         std::transform(provider_type.begin(), provider_type.end(), provider_type.begin(), [](unsigned char c){ return std::tolower(c); });
+        provider_type.erase(std::remove(provider_type.begin(), provider_type.end(), '.'), provider_type.end());
+        provider_type.erase(std::remove(provider_type.begin(), provider_type.end(), '-'), provider_type.end());
     } else {
         std::string raw = model_str;
         std::transform(raw.begin(), raw.end(), raw.begin(), [](unsigned char c){ return std::tolower(c); });
-        if (raw.find("gemini") != std::string::npos) {
+        // Resolve provider aliases before fuzzy inference: "ollama" contains
+        // "llama" and was previously routed to the llama.cpp provider.
+        if (raw == "ollama") {
+            provider_type = "ollama";
+            model_name = "qwen2.5-coder:latest";
+        } else if (raw == "llama" || raw == "llamacpp" || raw == "llama.cpp" || raw == "llama_cpp") {
+            provider_type = "llamacpp";
+            model_name = "default";
+        } else if (raw == "lmstudio" || raw == "lm-studio") {
+            provider_type = "lmstudio";
+            model_name = "default";
+        } else if (raw == "vllm") {
+            provider_type = "vllm";
+            model_name = "default";
+        } else if (raw.find("gemini") != std::string::npos) {
             provider_type = "gemini";
             model_name = model_str;
         } else if (raw.find("claude") != std::string::npos) {
@@ -119,7 +135,7 @@ std::shared_ptr<LLMProvider> ProviderRegistry::create_provider(const std::string
         } else if (raw.find("deepseek") != std::string::npos) {
             provider_type = "deepseek";
             model_name = model_str;
-        } else if (raw.find("llamacpp") != std::string::npos || raw.find("llama") != std::string::npos) {
+        } else if (raw.find("llama.cpp") != std::string::npos || raw.find("llamacpp") != std::string::npos) {
             provider_type = "llamacpp";
             model_name = "default";
         } else if (raw.find("ollama") != std::string::npos) {

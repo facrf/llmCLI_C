@@ -20,6 +20,9 @@ struct HttpResponse {
 
 class HttpClient {
 public:
+    // Parse the curl body/status envelope used internally (also useful in tests).
+    static HttpResponse parse_curl_response(const std::string& raw_output, int exit_code = 0);
+
     // Synchronous GET request
     static HttpResponse get(
         const std::string& url,

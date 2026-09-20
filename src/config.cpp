@@ -147,7 +147,19 @@ Config Config::load(const std::filesystem::path& root_path) {
         cfg.project_root = std::filesystem::current_path();
     }
 
-    // Load .env files (project root, parent workspace, cwd, and user config)
+    // Load the installation .env first. This keeps configuration stable when
+    // the executable is invoked through a shell alias from another workspace.
+    // Variables explicitly exported by the caller still take precedence.
+    try {
+        std::filesystem::path executable_dir = utils::EnvLoader::executable_dir();
+        if (!executable_dir.empty()) {
+            std::filesystem::path install_root =
+                executable_dir.filename() == "bin" ? executable_dir.parent_path() : executable_dir;
+            utils::EnvLoader::load_dotenv(install_root / ".env");
+        }
+    } catch (...) {}
+
+    // Load workspace, ancestor and user configuration as fallbacks.
     utils::EnvLoader::auto_discover_and_load(cfg.project_root);
 
     // Environment variables override
@@ -166,6 +178,21 @@ Config Config::load(const std::filesystem::path& root_path) {
 
     // Apply user preferences
     UserPreferences& prefs = get_preferences();
+    json saved_endpoints = prefs.get_global_pref("local_endpoints");
+    if (saved_endpoints.is_object()) {
+        if (std::getenv("LLAMACPP_BASE_URL") == nullptr && saved_endpoints.contains("llamacpp") && saved_endpoints["llamacpp"].is_string()) {
+            cfg.local_endpoints.llamacpp = saved_endpoints["llamacpp"].get<std::string>();
+        }
+        if (std::getenv("OLLAMA_BASE_URL") == nullptr && saved_endpoints.contains("ollama") && saved_endpoints["ollama"].is_string()) {
+            cfg.local_endpoints.ollama = saved_endpoints["ollama"].get<std::string>();
+        }
+        if (std::getenv("LMSTUDIO_BASE_URL") == nullptr && saved_endpoints.contains("lmstudio") && saved_endpoints["lmstudio"].is_string()) {
+            cfg.local_endpoints.lmstudio = saved_endpoints["lmstudio"].get<std::string>();
+        }
+        if (std::getenv("VLLM_BASE_URL") == nullptr && saved_endpoints.contains("vllm") && saved_endpoints["vllm"].is_string()) {
+            cfg.local_endpoints.vllm = saved_endpoints["vllm"].get<std::string>();
+        }
+    }
     json last_model = prefs.get_global_pref("last_active_model");
     if (!last_model.is_null() && last_model.is_string() && std::getenv("DEFAULT_MODEL") == nullptr) {
         cfg.active_model = last_model.get<std::string>();

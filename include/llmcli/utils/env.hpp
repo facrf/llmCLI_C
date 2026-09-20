@@ -8,6 +8,9 @@ namespace llmcli::utils {
 
 class EnvLoader {
 public:
+    // Directory that contains the running executable. Empty if unavailable.
+    static std::filesystem::path executable_dir();
+
     // Load a .env file into the process environment
     static bool load_dotenv(const std::filesystem::path& dotenv_path);
 
